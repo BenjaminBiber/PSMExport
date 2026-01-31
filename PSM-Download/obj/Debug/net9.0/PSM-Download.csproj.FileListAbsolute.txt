@@ -20,7 +20,6 @@
 /home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/scopedcss/Components/Layout/NavMenu.razor.rz.scp.css
 /home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/scopedcss/bundle/PSM-Download.styles.css
 /home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/scopedcss/projectbundle/PSM-Download.bundle.scp.css
-/home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/compressed/k0mssbjppx-w7mf952350.gz
 /home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/compressed/5jmsyolme1-bqjiyaj88i.gz
 /home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/compressed/9ny118bcyb-c2jlpeoesf.gz
 /home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/compressed/qjqt0vihnt-erw9l3u2r3.gz
@@ -76,3 +75,5 @@
 /home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/PSM-Download.pdb
 /home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/PSM-Download.genruntimeconfig.cache
 /home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/ref/PSM-Download.dll
+/home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/PSM-Download.sourcelink.json
+/home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/compressed/k0mssbjppx-tcl61o1mjr.gz

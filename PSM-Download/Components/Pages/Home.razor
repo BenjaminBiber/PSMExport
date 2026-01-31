@@ -7,15 +7,17 @@
 
 <PageTitle>PSM-Export</PageTitle>
 
-<div class="container py-4">
-    <h1 class="mb-3">PSM-Export (CSV)</h1>
-    <p class="text-muted">Exportiert alle Mittel inkl. Wirkstoffe, Zulassungszeitraum und dekodierte Schadorganismen.</p>
+<div class="container psm-page">
+    <div class="psm-hero">
+        <h1 class="psm-title">PSM-Export</h1>
+        <p class="psm-subtitle">Exportiert alle Mittel inkl. Wirkstoffe, Zulassungszeitraum und dekodierte Schadorganismen.</p>
+    </div>
 
     <div class="row g-4">
         <div class="col-lg-4">
-            <div class="card shadow-sm">
+            <div class="card psm-card">
                 <div class="card-body">
-                    <h2 class="h5">Spaltenauswahl</h2>
+                    <h2 class="psm-section-title">Spaltenauswahl</h2>
                     @foreach (var column in _columns)
                     {
                         <div class="form-check">
@@ -45,15 +47,17 @@
         </div>
 
         <div class="col-lg-8">
-            <div class="card shadow-sm">
+            <div class="card psm-card">
                 <div class="card-body">
-                    <h2 class="h5">Preview</h2>
+                    <h2 class="psm-section-title">Preview</h2>
                     @if (_isLoading)
                     {
-                        <p>Lade Daten... (@_completedCount von @_totalToProcess fertig)</p>
+                        <p class="psm-progress">
+                            Lade Daten... <strong>@_completedCount</strong> von <strong>@_totalToProcess</strong> fertig
+                        </p>
                         @if (_hasEta)
                         {
-                            <p class="text-muted">Noch ca. @_etaRemaining, fertig gegen @_etaFinish.</p>
+                            <p class="psm-progress">Noch ca. @_etaRemaining, fertig gegen @_etaFinish.</p>
                         }
                     }
                     else if (_previewData.Count == 0)
