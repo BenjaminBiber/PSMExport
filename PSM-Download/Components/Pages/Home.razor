@@ -1,0 +1,196 @@
+﻿@page "/"
+@using PSM_Download.Data.Models
+@using PSM_Download.Data.Services
+@inject IPsmExportService ExportService
+@inject ExportColumnRegistry ColumnRegistry
+@inject NavigationManager Navigation
+
+<PageTitle>PSM-Export</PageTitle>
+
+<div class="container py-4">
+    <h1 class="mb-3">PSM-Export (CSV)</h1>
+    <p class="text-muted">Exportiert alle Mittel inkl. Wirkstoffe, Zulassungszeitraum und dekodierte Schadorganismen.</p>
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h2 class="h5">Spaltenauswahl</h2>
+                    @foreach (var column in _columns)
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   id="@($"col-{column.Column.Id}")"
+                                   @bind="column.IsSelected" />
+                            <label class="form-check-label" for="@($"col-{column.Column.Id}")">
+                                @column.Column.Label
+                            </label>
+                        </div>
+                    }
+                    <div class="mt-3 d-flex gap-2 flex-wrap">
+                        <button class="btn btn-primary" @onclick="ExportCsv" disabled="@(!_columns.Any(c => c.IsSelected))">
+                            CSV exportieren
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick="LoadPreviewAsync" disabled="@_isLoading">
+                            Preview laden
+                        </button>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(_error))
+                    {
+                        <div class="alert alert-danger mt-3" role="alert">@_error</div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h2 class="h5">Preview</h2>
+                    @if (_isLoading)
+                    {
+                        <p>Lade Daten... (@_completedCount von @_totalToProcess fertig)</p>
+                        @if (_hasEta)
+                        {
+                            <p class="text-muted">Noch ca. @_etaRemaining, fertig gegen @_etaFinish.</p>
+                        }
+                    }
+                    else if (_previewData.Count == 0)
+                    {
+                        <p class="text-muted">Noch keine Daten geladen.</p>
+                    }
+                    else
+                    {
+                        <p class="text-muted">Zeigt @Math.Min(_previewData.Count, 20) von @_totalCount Eintraegen.</p>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                <tr>
+                                    @foreach (var column in SelectedColumns)
+                                    {
+                                        <th>@column.Column.Label</th>
+                                    }
+                                </tr>
+                                </thead>
+                                <tbody>
+                                @foreach (var mittel in _previewData)
+                                {
+                                    <tr>
+                                        @foreach (var column in SelectedColumns)
+                                        {
+                                            <td>@column.Column.ValueSelector(mittel)</td>
+                                        }
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private readonly List<ColumnSelection> _columns = [];
+    private readonly List<MittelAggregate> _previewData = [];
+    private int _totalCount;
+    private int _totalToProcess;
+    private int _completedCount;
+    private bool _isLoading;
+    private string? _error;
+    private DateTime _startTimeUtc;
+    private string? _etaRemaining;
+    private string? _etaFinish;
+    private bool _hasEta;
+
+    private IEnumerable<ColumnSelection> SelectedColumns => _columns.Where(column => column.IsSelected);
+
+    protected override void OnInitialized()
+    {
+        _columns.AddRange(ColumnRegistry.Columns.Select(column => new ColumnSelection(column, true)));
+    }
+
+    private async Task LoadPreviewAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        _previewData.Clear();
+        _totalCount = 0;
+        _totalToProcess = 0;
+        _completedCount = 0;
+        _etaRemaining = null;
+        _etaFinish = null;
+        _hasEta = false;
+        _startTimeUtc = DateTime.UtcNow;
+
+        try
+        {
+            var progress = new Progress<ExportProgress>(value =>
+            {
+                _completedCount = value.Completed;
+                _totalToProcess = value.Total;
+                UpdateEta();
+                _ = InvokeAsync(StateHasChanged);
+            });
+
+            var data = await ExportService.LoadAggregatedAsync(progress, CancellationToken.None);
+            _totalCount = data.Count;
+            _previewData.AddRange(data.Take(20));
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ExportCsv()
+    {
+        var selected = SelectedColumns.Select(column => column.Column.Id).ToList();
+        if (selected.Count == 0)
+        {
+            _error = "Bitte waehle mindestens eine Spalte aus.";
+            return;
+        }
+
+        var query = string.Join(",", selected);
+        Navigation.NavigateTo($"/export?columns={Uri.EscapeDataString(query)}", true);
+    }
+
+    private sealed class ColumnSelection
+    {
+        public ColumnSelection(ExportColumn column, bool isSelected)
+        {
+            Column = column;
+            IsSelected = isSelected;
+        }
+
+        public ExportColumn Column { get; }
+        public bool IsSelected { get; set; }
+    }
+
+    private void UpdateEta()
+    {
+        if (_completedCount <= 0 || _totalToProcess <= 0)
+        {
+            _hasEta = false;
+            return;
+        }
+
+        var elapsed = DateTime.UtcNow - _startTimeUtc;
+        var avgPerItemTicks = elapsed.Ticks / _completedCount;
+        var remainingItems = Math.Max(0, _totalToProcess - _completedCount);
+        var remaining = new TimeSpan(avgPerItemTicks * remainingItems);
+        var finish = DateTime.UtcNow + remaining;
+
+        _etaRemaining = $"{(int)remaining.TotalMinutes:D2}:{remaining.Seconds:D2}";
+        _etaFinish = finish.ToLocalTime().ToString("HH:mm:ss");
+        _hasEta = true;
+    }
+}
