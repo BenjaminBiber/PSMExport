@@ -30,4 +30,4 @@ jobs:
           context: .
           file: Dockerfile
           push: true
-          tags: BenjaminBiber/Psmexport:latest
+          tags: benjaminbiber/psmexport:latest
