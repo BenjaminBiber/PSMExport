@@ -1,9 +1,13 @@
+using System.Collections;
+using System.Reflection;
 using System.Text;
-using Microsoft.Extensions.Options;
+using BenjaminBiber.PSM_Api;
+using BenjaminBiber.PSM_Api.Data.Clients;
+using BenjaminBiber.PSM_Api.Data.Options;
+using BenjaminBiber.PSM_Api.Data.Services;
+using Microsoft.Extensions.Configuration;
 using PSM_Download.Components;
-using PSM_Download.Data.Clients;
-using PSM_Download.Data.Options;
-using PSM_Download.Data.Services;
+using PSM_Download.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,47 +15,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.Configure<PsmApiOptions>(builder.Configuration.GetSection("PsmApi"));
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ExportColumnRegistry>();
 builder.Services.AddSingleton<CsvBuilder>();
+builder.Services.AddSingleton<ApiCsvBuilder>();
 builder.Services.AddScoped<IPsmExportService, PsmExportService>();
-
-builder.Services.AddHttpClient<IMittelClient, MittelClient>((sp, client) =>
-{
-    var options = sp.GetRequiredService<IOptions<PsmApiOptions>>().Value;
-    client.BaseAddress = new Uri(options.BaseUrl);
-});
-builder.Services.AddHttpClient<IWirkstoffClient, WirkstoffClient>((sp, client) =>
-{
-    var options = sp.GetRequiredService<IOptions<PsmApiOptions>>().Value;
-    client.BaseAddress = new Uri(options.BaseUrl);
-});
-builder.Services.AddHttpClient<IWirkstoffGehaltClient, WirkstoffGehaltClient>((sp, client) =>
-{
-    var options = sp.GetRequiredService<IOptions<PsmApiOptions>>().Value;
-    client.BaseAddress = new Uri(options.BaseUrl);
-});
-builder.Services.AddHttpClient<IAwgClient, AwgClient>((sp, client) =>
-{
-    var options = sp.GetRequiredService<IOptions<PsmApiOptions>>().Value;
-    client.BaseAddress = new Uri(options.BaseUrl);
-});
-builder.Services.AddHttpClient<IAwgSchadorgClient, AwgSchadorgClient>((sp, client) =>
-{
-    var options = sp.GetRequiredService<IOptions<PsmApiOptions>>().Value;
-    client.BaseAddress = new Uri(options.BaseUrl);
-});
-builder.Services.AddHttpClient<IKodeClient, KodeClient>((sp, client) =>
-{
-    var options = sp.GetRequiredService<IOptions<PsmApiOptions>>().Value;
-    client.BaseAddress = new Uri(options.BaseUrl);
-});
-builder.Services.AddHttpClient<IKodelistenClient, KodelistenClient>((sp, client) =>
-{
-    var options = sp.GetRequiredService<IOptions<PsmApiOptions>>().Value;
-    client.BaseAddress = new Uri(options.BaseUrl);
-});
+builder.Services.AddPsmApiClients(options =>
+    builder.Configuration.GetSection("PsmApi").Bind(options));
 
 var app = builder.Build();
 
@@ -76,6 +46,35 @@ app.MapGet("/export", async (string? columns, IPsmExportService exportService, E
     return Results.File(encoding.GetBytes(csv), "text/csv", "psm-export.csv");
 });
 
+app.MapGet("/api-export", async (string? method, IPsmApiClient apiClient, ApiCsvBuilder csvBuilder, CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(method))
+    {
+        return Results.BadRequest("Method is required.");
+    }
+
+    var methodInfo = typeof(IPsmApiClient).GetMethod(method, BindingFlags.Public | BindingFlags.Instance);
+    if (!IsGetAllMethod(methodInfo))
+    {
+        return Results.BadRequest("Unknown or unsupported method.");
+    }
+
+    var task = methodInfo!.Invoke(apiClient, new object?[] { ct }) as Task;
+    if (task is null)
+    {
+        return Results.BadRequest("Invalid method result.");
+    }
+
+    await task.ConfigureAwait(false);
+    var resultProperty = task.GetType().GetProperty("Result");
+    var result = resultProperty?.GetValue(task);
+    var csv = csvBuilder.BuildCsv(result as IEnumerable);
+    var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+    var fileName = $"{ApiCsvBuilder.ToFileName(method)}.csv";
+
+    return Results.File(encoding.GetBytes(csv), "text/csv", fileName);
+});
+
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
@@ -92,4 +91,22 @@ static IReadOnlyList<string> ParseColumnSelection(string? raw, IReadOnlyList<str
     return raw
         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
         .ToList();
+}
+
+static bool IsGetAllMethod(MethodInfo? methodInfo)
+{
+    if (methodInfo is null)
+    {
+        return false;
+    }
+
+    if (!methodInfo.Name.StartsWith("GetAll", StringComparison.Ordinal) ||
+        !methodInfo.Name.EndsWith("Async", StringComparison.Ordinal) ||
+        string.Equals(methodInfo.Name, "GetAllAsync", StringComparison.Ordinal))
+    {
+        return false;
+    }
+
+    var parameters = methodInfo.GetParameters();
+    return parameters.Length == 1 && parameters[0].ParameterType == typeof(CancellationToken);
 }

@@ -78,3 +78,6 @@
 /home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/PSM-Download.sourcelink.json
 /home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/compressed/k0mssbjppx-tcl61o1mjr.gz
 /home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/compressed/dh4rxkyj5k-rk06v1n83r.gz
+/home/benjamin/RiderProjects/PSM-Download/PSM-Download/bin/Debug/net9.0/BenjaminBiber.PSM-Api.dll
+/home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/PSM-Download.csproj.AssemblyReference.cache
+/home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/PSM-Down.EFB53962.Up2Date

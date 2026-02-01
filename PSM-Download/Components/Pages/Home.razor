@@ -1,6 +1,9 @@
 ﻿@page "/"
-@using PSM_Download.Data.Models
-@using PSM_Download.Data.Services
+@using BenjaminBiber.PSM_Api.Data.Clients
+@using BenjaminBiber.PSM_Api.Data.Models
+@using BenjaminBiber.PSM_Api.Data.Services
+@using System.Text
+@using System.Reflection
 @inject IPsmExportService ExportService
 @inject ExportColumnRegistry ColumnRegistry
 @inject NavigationManager Navigation
@@ -31,16 +34,59 @@
                         </div>
                     }
                     <div class="mt-3 d-flex gap-2 flex-wrap">
-                        <button class="btn btn-primary" @onclick="ExportCsv" disabled="@(!_columns.Any(c => c.IsSelected))">
+                        <button class="btn btn-primary" @onclick="ExportCsv" disabled="@(!_columns.Any(c => c.IsSelected) || _isExporting)">
                             CSV exportieren
                         </button>
                         <button class="btn btn-outline-secondary" @onclick="LoadPreviewAsync" disabled="@_isLoading">
                             Preview laden
                         </button>
+                        @if (_isExporting)
+                        {
+                            <span class="d-inline-flex align-items-center text-muted">
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                CSV wird erstellt...
+                            </span>
+                        }
                     </div>
                     @if (!string.IsNullOrWhiteSpace(_error))
                     {
                         <div class="alert alert-danger mt-3" role="alert">@_error</div>
+                    }
+                </div>
+            </div>
+            <div class="card psm-card mt-4">
+                <div class="card-body">
+                    <h2 class="psm-section-title">API CSV-Downloads</h2>
+                    <p class="text-muted">CSV-Download fuer jede GetAll-Methode aus dem Nuget-Client.</p>
+                    @if (_apiDownloads.Count == 0)
+                    {
+                        <p class="text-muted">Keine GetAll-Methoden gefunden.</p>
+                    }
+                    else
+                    {
+                        <div class="d-grid gap-2">
+                            @foreach (var method in _apiDownloads)
+                            {
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div>@method.Label</div>
+                                        <div class="text-muted small">@method.Name</div>
+                                    </div>
+                                    <button class="btn btn-outline-primary btn-sm"
+                                            @onclick="() => StartApiExport(method.Name)"
+                                            disabled="@_isApiExporting">
+                                        CSV
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                        @if (_isApiExporting)
+                        {
+                            <div class="mt-3 d-inline-flex align-items-center text-muted">
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                CSV wird erstellt...
+                            </div>
+                        }
                     }
                 </div>
             </div>
@@ -103,6 +149,7 @@
 
 @code {
     private readonly List<ColumnSelection> _columns = [];
+    private readonly List<ApiMethodEntry> _apiDownloads = [];
     private readonly List<MittelAggregate> _previewData = [];
     private int _totalCount;
     private int _totalToProcess;
@@ -115,12 +162,15 @@
     private bool _hasEta;
     private string _statusText = "Lade Daten...";
     private bool _showCount;
+    private bool _isExporting;
+    private bool _isApiExporting;
 
     private IEnumerable<ColumnSelection> SelectedColumns => _columns.Where(column => column.IsSelected);
 
     protected override void OnInitialized()
     {
         _columns.AddRange(ColumnRegistry.Columns.Select(column => new ColumnSelection(column, true)));
+        _apiDownloads.AddRange(LoadApiDownloads());
     }
 
     private async Task LoadPreviewAsync()
@@ -174,7 +224,72 @@
         }
 
         var query = string.Join(",", selected);
+        _isExporting = true;
         Navigation.NavigateTo($"/export?columns={Uri.EscapeDataString(query)}", true);
+    }
+
+    private static IReadOnlyList<ApiMethodEntry> LoadApiDownloads()
+    {
+        return typeof(IPsmApiClient)
+            .GetMethods()
+            .Where(IsGetAllMethod)
+            .OrderBy(method => method.Name, StringComparer.Ordinal)
+            .Select(method => new ApiMethodEntry(method.Name, ToLabel(method.Name)))
+            .ToList();
+    }
+
+    private static bool IsGetAllMethod(MethodInfo method)
+    {
+        if (!method.Name.StartsWith("GetAll", StringComparison.Ordinal) ||
+            !method.Name.EndsWith("Async", StringComparison.Ordinal) ||
+            string.Equals(method.Name, "GetAllAsync", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var parameters = method.GetParameters();
+        return parameters.Length == 1 && parameters[0].ParameterType == typeof(CancellationToken);
+    }
+
+    private static string ToLabel(string methodName)
+    {
+        if (methodName.StartsWith("GetAll", StringComparison.Ordinal))
+        {
+            methodName = methodName["GetAll".Length..];
+        }
+
+        if (methodName.EndsWith("Async", StringComparison.Ordinal))
+        {
+            methodName = methodName[..^"Async".Length];
+        }
+
+        if (string.IsNullOrWhiteSpace(methodName))
+        {
+            return "Unbekannt";
+        }
+
+        var builder = new StringBuilder(methodName.Length + 4);
+        for (var i = 0; i < methodName.Length; i++)
+        {
+            var ch = methodName[i];
+            if (char.IsUpper(ch) && i > 0)
+            {
+                builder.Append(' ');
+            }
+
+            builder.Append(ch);
+        }
+
+        return builder.ToString();
+    }
+
+    private static string GetApiExportUrl(string methodName)
+        => $"/api-export?method={Uri.EscapeDataString(methodName)}";
+
+    private void StartApiExport(string methodName)
+    {
+        _isApiExporting = true;
+        Navigation.NavigateTo(GetApiExportUrl(methodName), true);
     }
 
     private sealed class ColumnSelection
@@ -187,6 +302,18 @@
 
         public ExportColumn Column { get; }
         public bool IsSelected { get; set; }
+    }
+
+    private sealed class ApiMethodEntry
+    {
+        public ApiMethodEntry(string name, string label)
+        {
+            Name = name;
+            Label = label;
+        }
+
+        public string Name { get; }
+        public string Label { get; }
     }
 
     private void UpdateEta()
