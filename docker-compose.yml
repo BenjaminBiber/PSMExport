@@ -1,8 +1,6 @@
 services:
   psm-download:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: benjaminbiber/psmexport:latest
     ports:
       - "8080:8080"
     environment:

@@ -10,4 +10,4 @@ public interface IPsmExportService
     Task<string> BuildCsvAsync(IReadOnlyList<string> selectedColumnIds, CancellationToken cancellationToken);
 }
 
-public sealed record ExportProgress(int Completed, int Total);
+public sealed record ExportProgress(string Stage, int Completed, int Total);

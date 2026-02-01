@@ -77,3 +77,4 @@
 /home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/ref/PSM-Download.dll
 /home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/PSM-Download.sourcelink.json
 /home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/compressed/k0mssbjppx-tcl61o1mjr.gz
+/home/benjamin/RiderProjects/PSM-Download/PSM-Download/obj/Debug/net9.0/compressed/dh4rxkyj5k-rk06v1n83r.gz

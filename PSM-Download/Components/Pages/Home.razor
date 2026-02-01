@@ -52,9 +52,13 @@
                     <h2 class="psm-section-title">Preview</h2>
                     @if (_isLoading)
                     {
-                        <p class="psm-progress">
-                            Lade Daten... <strong>@_completedCount</strong> von <strong>@_totalToProcess</strong> fertig
-                        </p>
+                        <p class="psm-progress">@_statusText</p>
+                        @if (_showCount)
+                        {
+                            <p class="psm-progress">
+                                <strong>@_completedCount</strong> von <strong>@_totalToProcess</strong> fertig
+                            </p>
+                        }
                         @if (_hasEta)
                         {
                             <p class="psm-progress">Noch ca. @_etaRemaining, fertig gegen @_etaFinish.</p>
@@ -109,6 +113,8 @@
     private string? _etaRemaining;
     private string? _etaFinish;
     private bool _hasEta;
+    private string _statusText = "Lade Daten...";
+    private bool _showCount;
 
     private IEnumerable<ColumnSelection> SelectedColumns => _columns.Where(column => column.IsSelected);
 
@@ -128,14 +134,18 @@
         _etaRemaining = null;
         _etaFinish = null;
         _hasEta = false;
+        _statusText = "Lade Daten...";
+        _showCount = false;
         _startTimeUtc = DateTime.UtcNow;
 
         try
         {
             var progress = new Progress<ExportProgress>(value =>
             {
+                _statusText = value.Stage;
                 _completedCount = value.Completed;
                 _totalToProcess = value.Total;
+                _showCount = value.Total > 0;
                 UpdateEta();
                 _ = InvokeAsync(StateHasChanged);
             });

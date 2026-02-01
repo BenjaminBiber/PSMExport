@@ -20,9 +20,14 @@ public sealed class PsmExportService(
         IProgress<ExportProgress>? progress,
         CancellationToken cancellationToken)
     {
+        progress?.Report(new ExportProgress("Lade Mittel", 0, 0));
         var mittelDtos = await mittelClient.GetAllAsync(cancellationToken);
+
+        progress?.Report(new ExportProgress("Lade Wirkstoffe", 0, 0));
         var wirkstoffDtos = await wirkstoffClient.GetAllAsync(cancellationToken);
         var wirkstoffGehaltDtos = await wirkstoffGehaltClient.GetAllAsync(cancellationToken);
+
+        progress?.Report(new ExportProgress("Lade AWG-Daten", 0, 0));
         var awgDtos = await awgClient.GetAllAsync(cancellationToken);
         var awgSchadorgDtos = await awgSchadorgClient.GetAllAsync(cancellationToken);
 
@@ -59,6 +64,7 @@ public sealed class PsmExportService(
         using var limiter = new SemaphoreSlim(8);
         var total = mittelDtos.Count(dto => !string.IsNullOrWhiteSpace(dto.Kennr));
         var completed = 0;
+        progress?.Report(new ExportProgress("Lade Daten", 0, total));
 
         var tasks = mittelDtos.Select(async mittel =>
         {
@@ -116,7 +122,7 @@ public sealed class PsmExportService(
                 if (!string.IsNullOrWhiteSpace(mittel.Kennr))
                 {
                     var current = Interlocked.Increment(ref completed);
-                    progress?.Report(new ExportProgress(current, total));
+                    progress?.Report(new ExportProgress("Lade Daten", current, total));
                 }
                 limiter.Release();
             }
