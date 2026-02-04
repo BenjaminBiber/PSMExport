@@ -2,6 +2,7 @@ using System.Collections;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace PSM_Download.Services;
@@ -9,6 +10,10 @@ namespace PSM_Download.Services;
 public sealed class ApiCsvBuilder
 {
     private const char Separator = ';';
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 
     public string BuildCsv(IEnumerable? items)
     {
@@ -75,6 +80,12 @@ public sealed class ApiCsvBuilder
             .Where(prop => prop.CanRead && prop.GetIndexParameters().Length == 0)
             .OrderBy(prop => prop.Name, StringComparer.Ordinal)
             .ToList();
+        if (ShouldExcludeExtendedValues(properties.Select(prop => prop.Name)))
+        {
+            properties = properties
+                .Where(prop => !IsExtendedValuesProperty(prop.Name))
+                .ToList();
+        }
 
         var builder = new StringBuilder();
         if (properties.Count == 0)
@@ -137,6 +148,12 @@ public sealed class ApiCsvBuilder
         {
             headers.Add("Value");
         }
+        else if (ShouldExcludeExtendedValues(headers))
+        {
+            headers = headers
+                .Where(header => !IsExtendedValuesProperty(header))
+                .ToList();
+        }
 
         var builder = new StringBuilder();
         builder.AppendLine(string.Join(Separator, headers.Select(EscapeCsv)));
@@ -193,17 +210,17 @@ public sealed class ApiCsvBuilder
 
         if (value is DateOnly dateOnly)
         {
-            return dateOnly.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            return dateOnly.ToString("yyyy-MM-dd 00:00:00", CultureInfo.InvariantCulture);
         }
 
         if (value is DateTime dateTime)
         {
-            return dateTime.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
+            return dateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         }
 
         if (value is DateTimeOffset dateTimeOffset)
         {
-            return dateTimeOffset.ToString("yyyy-MM-ddTHH:mm:ssK", CultureInfo.InvariantCulture);
+            return dateTimeOffset.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         }
 
         if (value is bool boolean)
@@ -232,19 +249,19 @@ public sealed class ApiCsvBuilder
             return formattable.ToString(null, CultureInfo.InvariantCulture) ?? string.Empty;
         }
 
-        return JsonSerializer.Serialize(value);
+        return JsonSerializer.Serialize(value, JsonOptions);
     }
 
     private static string FormatJsonValue(JsonElement element)
     {
         return element.ValueKind switch
         {
-            JsonValueKind.String => element.GetString() ?? string.Empty,
+            JsonValueKind.String => FormatDateString(element.GetString()),
             JsonValueKind.Number => element.ToString() ?? string.Empty,
             JsonValueKind.True => "true",
             JsonValueKind.False => "false",
-            JsonValueKind.Object => element.GetRawText(),
-            JsonValueKind.Array => element.GetRawText(),
+            JsonValueKind.Object => JsonSerializer.Serialize(element, JsonOptions),
+            JsonValueKind.Array => JsonSerializer.Serialize(element, JsonOptions),
             JsonValueKind.Null => string.Empty,
             JsonValueKind.Undefined => string.Empty,
             _ => element.ToString() ?? string.Empty
@@ -253,16 +270,43 @@ public sealed class ApiCsvBuilder
 
     private static string EscapeCsv(string value)
     {
-        if (string.IsNullOrEmpty(value))
+        return value;
+    }
+
+    private static string FormatDateString(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
         {
-            return value;
+            return string.Empty;
         }
 
-        if (value.Contains(Separator) || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
+        if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind | DateTimeStyles.AssumeUniversal, out var offset))
         {
-            return $"\"{value.Replace("\"", "\"\"")}\"";
+            return offset.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        }
+
+        if (DateTime.TryParse(value, CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind | DateTimeStyles.AssumeUniversal, out var dateTime))
+        {
+            return dateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         }
 
         return value;
+    }
+
+    private static bool ShouldExcludeExtendedValues(IEnumerable<string> names)
+    {
+        var nameSet = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
+        return nameSet.Contains("kennr") &&
+               nameSet.Contains("mittelname") &&
+               names.Any(IsExtendedValuesProperty);
+    }
+
+    private static bool IsExtendedValuesProperty(string name)
+    {
+        return string.Equals(name, "ExtendedValues", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(name, "extended_values", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(name, "ExtensionData", StringComparison.OrdinalIgnoreCase);
     }
 }

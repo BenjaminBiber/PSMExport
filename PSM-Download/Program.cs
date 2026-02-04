@@ -43,7 +43,7 @@ app.MapGet("/export", async (string? columns, IPsmExportService exportService, E
     var columnIds = ParseColumnSelection(columns, registry.DefaultColumnIds);
     var csv = await exportService.BuildCsvAsync(columnIds, ct);
     var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
-    return Results.File(encoding.GetBytes(csv), "text/csv", "psm-export.csv");
+    return Results.File(encoding.GetBytes(csv), "text/csv; charset=utf-8", "psm-export.csv");
 });
 
 app.MapGet("/api-export", async (string? method, IPsmApiClient apiClient, ApiCsvBuilder csvBuilder, CancellationToken ct) =>
@@ -72,7 +72,7 @@ app.MapGet("/api-export", async (string? method, IPsmApiClient apiClient, ApiCsv
     var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
     var fileName = $"{ApiCsvBuilder.ToFileName(method)}.csv";
 
-    return Results.File(encoding.GetBytes(csv), "text/csv", fileName);
+    return Results.File(encoding.GetBytes(csv), "text/csv; charset=utf-8", fileName);
 });
 
 app.MapStaticAssets();
