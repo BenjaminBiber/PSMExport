@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PSM-Download")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ebfb1cfb679af3e1c32f8f5aaa84550e146b6b47")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a6c81eebc265527e772adfff8452784a3478af8c")]
 [assembly: System.Reflection.AssemblyProductAttribute("PSM-Download")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PSM-Download")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

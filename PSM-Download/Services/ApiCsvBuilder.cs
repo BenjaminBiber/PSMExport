@@ -281,13 +281,13 @@ public sealed class ApiCsvBuilder
         }
 
         if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture,
-                DateTimeStyles.RoundtripKind | DateTimeStyles.AssumeUniversal, out var offset))
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var offset))
         {
             return offset.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         }
 
         if (DateTime.TryParse(value, CultureInfo.InvariantCulture,
-                DateTimeStyles.RoundtripKind | DateTimeStyles.AssumeUniversal, out var dateTime))
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var dateTime))
         {
             return dateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         }
